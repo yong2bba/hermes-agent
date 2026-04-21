@@ -63,6 +63,28 @@ from gateway.platforms.slack import SlackAdapter  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
+# Token validation
+# ---------------------------------------------------------------------------
+
+
+class TestSlackTokenValidation:
+    def test_rejects_app_token_with_wrong_prefix(self):
+        msg = _slack_mod._validate_slack_token_pair(
+            "xoxb-bot-token", "xoxp-not-a-socket-mode-token"
+        )
+        assert msg is not None
+        assert "SLACK_APP_TOKEN" in msg
+        assert "xapp-" in msg
+
+    def test_detects_swapped_tokens(self):
+        msg = _slack_mod._validate_slack_token_pair(
+            "xapp-swapped-app-token", "xoxb-swapped-bot-token"
+        )
+        assert msg is not None
+        assert "swapped" in msg.lower()
+
+
+# ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
 

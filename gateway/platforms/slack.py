@@ -61,6 +61,34 @@ def check_slack_requirements() -> bool:
     return SLACK_AVAILABLE
 
 
+def _validate_slack_token_pair(bot_token: str, app_token: str) -> Optional[str]:
+    """Return a human-readable error if the Slack token pair looks wrong.
+
+    Slack needs two different token types:
+    - SLACK_BOT_TOKEN must be a bot token (xoxb-...)
+    - SLACK_APP_TOKEN must be an app-level Socket Mode token (xapp-...)
+    """
+    bot_token = (bot_token or "").strip()
+    app_token = (app_token or "").strip()
+
+    problems = []
+    if bot_token and not bot_token.startswith("xoxb-"):
+        problems.append(
+            f"SLACK_BOT_TOKEN must start with xoxb- (got {bot_token[:5]}...)."
+        )
+    if app_token and not app_token.startswith("xapp-"):
+        problems.append(
+            f"SLACK_APP_TOKEN must start with xapp- (got {app_token[:5]}...)."
+        )
+    if bot_token.startswith("xapp-") and app_token.startswith("xoxb-"):
+        problems.append(
+            "SLACK_BOT_TOKEN and SLACK_APP_TOKEN look swapped. "
+            "Bot token should be xoxb-... and app token should be xapp-...."
+        )
+
+    return " ".join(problems) if problems else None
+
+
 class SlackAdapter(BasePlatformAdapter):
     """
     Slack bot adapter using Socket Mode.
@@ -149,6 +177,11 @@ class SlackAdapter(BasePlatformAdapter):
                         logger.info("[Slack] Loaded saved token for workspace %s", team_label)
             except Exception as e:
                 logger.warning("[Slack] Failed to read %s: %s", tokens_file, e)
+
+        token_error = _validate_slack_token_pair(bot_tokens[0], app_token)
+        if token_error:
+            logger.error("[Slack] %s", token_error)
+            return False
 
         try:
             if not self._acquire_platform_lock('slack-app-token', app_token, 'Slack app token'):
